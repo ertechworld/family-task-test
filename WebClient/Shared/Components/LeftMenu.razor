@@ -1,0 +1,181 @@
+@using Core.Extensions.ModelConversion
+@using Domain.ClientSideModels
+
+@namespace WebClient.Shared.Components
+
+@inject WebClient.Abstractions.IMemberDataService memberService
+@inject WebClient.Abstractions.ITaskDataService taskService;
+<style>
+    .menu-wrapper {
+        background: #FBFBFB;
+        box-shadow: 2px 0px 4px 2px rgba(0, 0, 0, 0.12);
+        overflow-y: auto;
+        height: 100%;
+    }
+
+        .menu-wrapper .menu-item {
+            background: #FFFFFF;
+            box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.12);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            border: 3px solid #FFFFFF;
+        }
+
+            .menu-wrapper .menu-item.active {
+                border: 3px solid #CC1778;
+            }
+
+        .menu-wrapper .add-menu-item {
+            border: 1px dashed #000000;
+            box-sizing: border-box;
+            filter: drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.12));
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+    .add-menu-item .fa {
+        font-size: 12px;
+    }
+
+    .menu-wrapper .label {
+        color: #000000;
+        font-family: "Poppins Regular";
+        font-size: 24px;
+        line-height: 36px;
+    }
+
+    .menu-wrapper .avtar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+    }
+
+    @@media(max-width: 1400px) {
+        .menu-wrapper .label {
+            font-size: 16px;
+            line-height: 24px;
+        }
+
+        .menu-wrapper .avtar {
+            width: 24px;
+            height: 24px;
+        }
+    }
+
+    @@media(max-width: 767.98px) {
+        .menu-wrapper .avtar {
+            width: 16px;
+            height: 16px;
+        }
+    }
+</style>
+
+<div class="menu-wrapper col-12 p-0">
+    @if (MenuItems != null && MenuItems.Length > 0)
+    {
+        <div class="menu-item col-10 offset-1 p-3 my-4 p-sm-2" @onclick="@(e => getAllTask())">
+            
+            <div class="label"> All Tasks </div>
+        </div>
+        @foreach (var item in MenuItems)
+        {
+            <div class="menu-item col-10 offset-1 p-3 my-4 p-sm-2 @(item.isActive ? "active" : "")"
+                 @onclick="@(e => SelectMember(item.referenceId))" @ondrop="@(val => drop(item.referenceId))"
+                 ondragover="allowDrop(event)">
+                @if (item.iconColor != null)
+                {
+                    <div class="avtar mr-3" style="background-color: @(item.iconColor);"> </div>
+                }
+                <div class="label"> @item.label </div>
+            </div>
+        }
+    }
+
+    <div class="add-menu-item label col-10 offset-1 p-3 my-4 p-sm-2" @onclick="@OnAddItem">
+        <span class="fa fa-plus"></span> &nbsp; Add Member
+    </div>
+</div>
+
+@code {
+    protected override Task OnInitializedAsync()
+    {
+        MenuItems = memberService.Members.ToMenuItems();
+        memberService.MembersChanged += MemberServiceOnMembersChanged;
+        memberService.SelectedMemberChanged += MemberServiceOnSelectedMemberChanged;
+
+        if (memberService.SelectedMember != null)
+        {
+            SetActiveItem(memberService.SelectedMember.Id);
+        }
+
+        return base.OnInitializedAsync();
+    }
+
+    private void MemberServiceOnSelectedMemberChanged(object sender, EventArgs e)
+    {
+        InactivateAllItems();
+        if (memberService.SelectedMember != null)
+            SetActiveItem(memberService.SelectedMember.Id);
+        StateHasChanged();
+    }
+
+    private void MemberServiceOnMembersChanged(object sender, EventArgs e)
+    {
+        MenuItems = memberService.Members.ToMenuItems();
+        StateHasChanged();
+    }
+
+    [Parameter] public MenuItem[] MenuItems { get; set; }
+
+    private void InactivateAllItems()
+    {
+        foreach (var menuItem in MenuItems)
+        {
+            menuItem.isActive = false;
+        }
+    }
+
+    private void SetActiveItem(Guid id)
+    {
+        foreach (var menuItem in MenuItems)
+        {
+            if (menuItem.referenceId == id)
+            {
+                menuItem.isActive = true;
+            }
+        }
+    }
+
+    void SelectMember(Guid id)
+    {
+        memberService.SelectMember(id);
+        taskService.SelectedMemberTask(id);
+
+    }
+    private void getAllTask()
+    {
+        taskService.LoadTasks();
+        foreach (var menuItem in MenuItems)
+        {            
+                menuItem.isActive = false;            
+        }
+        memberService.SelectNullMember();
+    }
+
+    private void OnAddItem()
+    {
+        memberService.SelectNullMember();
+    }
+    private void drop(Guid id)
+    {
+        //Guid taskId = "F323EEF8-836F-4F2C-9F25-53BB020E3EAB";
+        Guid taskId = taskService.SelectedTask.Id;
+        taskService.DropTask(id,taskId);
+    }
+
+}
